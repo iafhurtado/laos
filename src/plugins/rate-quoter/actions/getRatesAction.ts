@@ -72,8 +72,8 @@ export const getRatesAction: Action = {
 
       return {
         text,
-        values: { count: quotes.length },
-        data: { quotes },
+        values: { count: quotes.length, origin: input.origin, destination: input.destination, weightLbs: input.weightLbs, mode: input.mode },
+        data: { actionName: 'GET_RATES', quotes, input },
         success: true,
       };
     } catch (error) {

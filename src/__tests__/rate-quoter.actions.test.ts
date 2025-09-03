@@ -8,7 +8,7 @@ import { RateQuoterService } from '../plugins/rate-quoter/services/rateQuoterSer
 const mockRuntime: any = {
   databaseAdapter: {
     db: async (strings: any, ...values: any[]) => {
-      // Minimal tagged template mock: return two rates
+      // Return Neon-shaped rows expected by updated service
       return [
         {
           origin: 'Ningbo',
@@ -16,10 +16,9 @@ const mockRuntime: any = {
           mode: 'ocean',
           carrier_id: 'msk',
           carrier_name: 'Maersk',
-          min_weight_lbs: 1000,
-          max_weight_lbs: 30000,
+          min_weight: 1000,
+          max_weight: 30000,
           base_rate: 1200,
-          rate_per_lb: 0.15,
           transit_days: 32,
         },
         {
@@ -28,10 +27,9 @@ const mockRuntime: any = {
           mode: 'air',
           carrier_id: 'lh',
           carrier_name: 'Lufthansa',
-          min_weight_lbs: 100,
-          max_weight_lbs: 5000,
+          min_weight: 100,
+          max_weight: 5000,
           base_rate: 900,
-          rate_per_lb: 1.1,
           transit_days: 4,
         },
       ];

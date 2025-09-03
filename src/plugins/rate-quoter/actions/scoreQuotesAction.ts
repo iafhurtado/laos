@@ -1,7 +1,7 @@
 import type { Action, ActionResult, HandlerCallback, IAgentRuntime, Memory, State } from '@elizaos/core';
 import { z } from 'zod';
 import { RateQuoterService } from '../services/rateQuoterService';
-import type { Quote, Mode } from '../types';
+import type { Quote, Mode, ScoringPolicy } from '../types';
 
 const scoreSchema = z.object({
   weightLbs: z.number().positive(),
@@ -18,6 +18,19 @@ const scoreSchema = z.object({
       })
     )
     .min(1),
+  policy: z
+    .object({
+      weights: z.object({
+        cost: z.number().nonnegative().optional(),
+        time: z.number().nonnegative().optional(),
+        reliability: z.number().nonnegative().optional(),
+        risk: z.number().nonnegative().optional(),
+      }),
+      maxTransitDays: z.number().int().positive().optional(),
+      preferredCarriers: z.array(z.string()).optional(),
+    })
+    .partial()
+    .optional(),
 });
 
 const normalizeMode = (value: string): Mode | undefined => {
@@ -51,9 +64,18 @@ export const scoreQuotesAction: Action = {
       const payload = {
         weightLbs: typeof values.weightLbs === 'number' ? values.weightLbs : Number(values.weightLbs),
         quotes: (payloadRaw.quotes || (state?.data?.quotes as Quote[]) || []) as Quote[],
+        policy:
+          (payloadRaw.policy as Partial<ScoringPolicy>) ||
+          (state?.data?.policy as Partial<ScoringPolicy>) ||
+          (values?.policy as Partial<ScoringPolicy>) ||
+          (values?.scoringPolicy as Partial<ScoringPolicy>) ||
+          undefined,
       };
 
-      const { weightLbs, quotes } = await scoreSchema.parseAsync(payload);
+      const parsed = await scoreSchema.parseAsync(payload);
+      const weightLbs = parsed.weightLbs;
+      const quotes = parsed.quotes;
+      const policy = (parsed.policy as Partial<ScoringPolicy> | undefined);
       // Coerce modes to Mode union
       const typedQuotes: Quote[] = quotes.map((q: any) => ({
         ...q,
@@ -62,18 +84,16 @@ export const scoreQuotesAction: Action = {
       const service = runtime.getService(RateQuoterService.serviceType) as RateQuoterService | null
         || new RateQuoterService(runtime);
 
-      const scored = service.scoreQuotesByWeight(typedQuotes, weightLbs);
+      const scored = service.scoreQuotesComposite(typedQuotes, weightLbs, policy);
       const top3 = scored.slice(0, 3);
 
       const text = top3.length
-        ? `Top ${top3.length} options by cost for ${weightLbs} lbs:\n` +
+        ? `Top ${top3.length} scored options for ${weightLbs} lbs (weights: cost=${(policy?.weights?.cost ?? Number(process.env.SCORING_WEIGHTS_COST ?? 0.35))}, time=${(policy?.weights?.time ?? Number(process.env.SCORING_WEIGHTS_TIME ?? 0.25))}, reliability=${(policy?.weights?.reliability ?? Number(process.env.SCORING_WEIGHTS_RELIABILITY ?? 0.30))}, risk=${(policy?.weights?.risk ?? Number(process.env.SCORING_WEIGHTS_RISK ?? 0.10))}):\n` +
           top3
-            .map(
-              (q, i) =>
-                `${i + 1}. ${q.carrierName || q.carrierId} - $${q.breakdown.totalCostUsd.toFixed(
-                  2
-                )} (${q.mode})`
-            )
+            .map((q, i) => {
+              const pct = ((q.breakdown.compositeScore ?? 0) * 100).toFixed(1);
+              return `${i + 1}. ${q.carrierName || q.carrierId} - $${q.breakdown.totalCostUsd.toFixed(2)} (${q.mode}) • Score ${pct}%`;
+            })
             .join('\n')
         : 'No quotes to score.';
 
@@ -82,7 +102,7 @@ export const scoreQuotesAction: Action = {
       return {
         text,
         values: { topCount: top3.length },
-        data: { top3 },
+        data: { actionName: 'SCORE_QUOTES', top3, policy: policy ?? null },
         success: true,
       };
     } catch (error) {
