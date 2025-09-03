@@ -5,6 +5,7 @@ import { RateQuoterService } from './services/rateQuoterService';
 import { getRatesAction } from './actions/getRatesAction';
 import { scoreQuotesAction } from './actions/scoreQuotesAction';
 import { getTop3RatesAction } from './actions/getTop3RatesAction';
+import { updateEntityAction } from './actions/updateEntityAction';
 
 const configSchema = z.object({
   RATE_LIMIT_PER_MINUTE: z.coerce.number().default(120),
@@ -36,7 +37,7 @@ export const rateQuoterPlugin: Plugin = {
     logger.info('rate-quoter plugin initialized');
   },
   services: [RateQuoterService],
-  actions: [getRatesAction, scoreQuotesAction, getTop3RatesAction],
+  actions: [getRatesAction, scoreQuotesAction, getTop3RatesAction, updateEntityAction],
   providers: [],
   evaluators: [],
   routes: [],
