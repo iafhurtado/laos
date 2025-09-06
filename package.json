@@ -32,6 +32,7 @@
     "@elizaos/plugin-bootstrap": "latest",
     "@elizaos/plugin-openai": "^1.0.11",
     "@elizaos/plugin-sql": "latest",
+    "@elizaos/plugin-rate-quoter": "latest",
     "@tanstack/react-query": "^5.29.0",
     "clsx": "^2.1.1",
     "react": "^18.3.1",
